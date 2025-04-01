@@ -1,0 +1,5 @@
+p, 1/org1/role_org_admin, /org1/*/*, *, allow
+p, 1/org1/developer, /org1/app/*, app-deploy, deny
+p, 1/org1/developer, /org1/app/*, *, allow
+g, 2/_/user1, 1/org1/role_org_admin
+g, 2/_/user2, 1/org1/developer
