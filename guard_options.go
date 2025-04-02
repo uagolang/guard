@@ -4,7 +4,7 @@ import (
 	"github.com/casbin/casbin/v2"
 
 	"github.com/uagolang/guard/common"
-	"github.com/uagolang/guard/common/contracts"
+	"github.com/uagolang/guard/contracts"
 )
 
 type Option func(g *Guard)
@@ -33,7 +33,7 @@ func WithEntityObjects(entityObjects []common.EntityObject) Option {
 	}
 }
 
-func WithPerms(perms []common.Perm) Option {
+func WithPerms(perms []contracts.Perm) Option {
 	return func(g *Guard) {
 		g.perms = perms
 	}

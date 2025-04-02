@@ -11,7 +11,7 @@ const (
 	EntityObjectUser     EntityObject = "User"
 	EntityObjectOrg      EntityObject = "Org"
 	EntityObjectOrgUser  EntityObject = "User"
-	EntityObjectPerm     EntityObject = "Perm"
+	EntityObjectPerm     EntityObject = "Permission"
 	EntityObjectRole     EntityObject = "Role"
 	EntityObjectRoleUser EntityObject = "Role User"
 )

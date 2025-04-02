@@ -1,15 +1,14 @@
-package tenant
+package tenant_with_groups
 
 import (
-	"github.com/uagolang/guard/common"
-	"github.com/uagolang/guard/common/contracts"
+	"github.com/uagolang/guard/contracts"
 )
 
 // policy is a casbin entry of type p
 type policy struct {
 	sub    contracts.Subject
 	scope  contracts.Scope
-	perm   common.Perm
+	perm   contracts.Perm
 	effect string
 }
 
@@ -21,7 +20,7 @@ func (p *policy) Scope() contracts.Scope {
 	return p.scope
 }
 
-func (p *policy) Perm() any {
+func (p *policy) Perm() contracts.Perm {
 	return p.perm
 }
 
@@ -29,7 +28,7 @@ func (p *policy) Effect() string {
 	return p.effect
 }
 
-func newPolicy(sub contracts.Subject, scope contracts.Scope, perm common.Perm, effect string) contracts.Policy {
+func newPolicy(sub contracts.Subject, scope contracts.Scope, perm contracts.Perm, effect string) contracts.Policy {
 	return &policy{
 		sub:    sub,
 		scope:  scope,
@@ -38,7 +37,7 @@ func newPolicy(sub contracts.Subject, scope contracts.Scope, perm common.Perm, e
 	}
 }
 
-func newPolicyFromCasbin(permsList []common.Perm, s []string) (contracts.Policy, error) {
+func newPolicyFromCasbin(permsList []contracts.Perm, s []string) (contracts.Policy, error) {
 	sub, err := newSubjectFromCasbin(s[0])
 	if err != nil {
 		return nil, err
@@ -49,14 +48,9 @@ func newPolicyFromCasbin(permsList []common.Perm, s []string) (contracts.Policy,
 		return nil, err
 	}
 
-	permAny, err := obj.GetPerm(permsList, s[2], "", "")
+	perm, err := obj.GetPerm(permsList, s[2])
 	if err != nil {
 		return nil, err
-	}
-
-	perm, ok := permAny.(common.Perm)
-	if !ok {
-		return nil, common.ErrUnknownType("permission contract", "")
 	}
 
 	effect := s[3]
@@ -66,15 +60,25 @@ func newPolicyFromCasbin(permsList []common.Perm, s []string) (contracts.Policy,
 
 type rolePolicy struct {
 	scope  contracts.Scope
-	perm   any
+	perm   contracts.Perm
 	effect string
+}
+
+func (p *rolePolicy) SetScope(s contracts.Scope) contracts.RolePolicy {
+	p.scope = s
+	return p
 }
 
 func (p *rolePolicy) Scope() contracts.Scope {
 	return p.scope
 }
 
-func (p *rolePolicy) Perm() any {
+func (p *rolePolicy) SetPerm(perm contracts.Perm) contracts.RolePolicy {
+	p.perm = perm
+	return p
+}
+
+func (p *rolePolicy) Perm() contracts.Perm {
 	return p.perm
 }
 
@@ -83,12 +87,11 @@ func (p *rolePolicy) Effect() string {
 }
 
 func (p *rolePolicy) ToCasbin(sub contracts.Subject) []string {
-	obj := newObject().SetScope(p.scope).SetPerm(p.perm)
-	perm := p.perm.(common.Perm)
-	return []string{sub.ToCasbin(), obj.ToCasbin(), (&perm).GetAction(), p.effect}
+	obj := NewObject().SetScope(p.scope).SetPerm(p.perm)
+	return []string{sub.ToCasbin(), obj.ToCasbin(), p.perm.GetAction(), p.effect}
 }
 
-func newRolePolicyFromCasbin(permsList []common.Perm, p []string) (contracts.RolePolicy, error) {
+func newRolePolicyFromCasbin(permsList []contracts.Perm, p []string) (contracts.RolePolicy, error) {
 	pol, err := newPolicyFromCasbin(permsList, p)
 	if err != nil {
 		return nil, err

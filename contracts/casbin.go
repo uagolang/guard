@@ -11,8 +11,8 @@ type Object interface {
 	ToCasbin() string
 	SetScope(s Scope) Object
 	GetScope() Scope
-	SetPerm(p any) Object
-	GetPerm(list any, obj, objID, action string) (any, error)
+	SetPerm(p Perm) Object
+	GetPerm(list []Perm, action string) (Perm, error)
 }
 
 type Scope interface {
@@ -25,13 +25,15 @@ type Scope interface {
 type Policy interface {
 	Sub() Subject
 	Scope() Scope
-	Perm() any
+	Perm() Perm
 	Effect() string
 }
 
 type RolePolicy interface {
+	SetScope(s Scope) RolePolicy
 	Scope() Scope
-	Perm() any
+	SetPerm(p Perm) RolePolicy
+	Perm() Perm
 	Effect() string
 	ToCasbin(sub Subject) []string
 }
@@ -39,6 +41,17 @@ type RolePolicy interface {
 type GroupPolicy interface {
 	ToCasbin() []string
 }
+
+type PolicyEffect string
+
+func (e PolicyEffect) String() string {
+	return string(e)
+}
+
+const (
+	PolicyEffectAllow PolicyEffect = "allow"
+	PolicyEffectDeny  PolicyEffect = "deny"
+)
 
 type ScopeData map[string]string
 

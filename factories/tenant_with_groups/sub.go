@@ -1,4 +1,4 @@
-package tenant
+package tenant_with_groups
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/uagolang/guard/common"
-	"github.com/uagolang/guard/common/contracts"
+	"github.com/uagolang/guard/contracts"
 )
 
 type subjectKind int
@@ -21,11 +21,11 @@ const (
 //
 // Possible kinds:
 //
-// Role: 1/tenantID/roleID
+// Role: 1/TenantID/roleID
 //
-// User: 2/tenantID/userID
+// User: 2/TenantID/userID
 //
-// Group: 3/tenantID/groupID
+// Group: 3/TenantID/groupID
 type subject struct {
 	Kind     subjectKind `json:"kind"`
 	TenantID string      `json:"org_id"`
@@ -34,7 +34,7 @@ type subject struct {
 
 func (s *subject) ToCasbin() string {
 	if s.TenantID == "" {
-		panic(fmt.Sprintf("subject tenantID is empty: %v", s))
+		panic(fmt.Sprintf("subject TenantID is empty: %v", s))
 	}
 	if s.ID == "" {
 		panic(fmt.Sprintf("subject id is empty: %v", s))
@@ -55,27 +55,27 @@ func (s *subject) IsGroup() bool {
 	return s.Kind == subjectKindGroup
 }
 
-func newSubjectUser(id string) contracts.Subject {
+func NewSubjectUser(userID string) contracts.Subject {
 	return &subject{
 		Kind:     subjectKindUser,
 		TenantID: "_",
-		ID:       id,
+		ID:       userID,
 	}
 }
 
-func newSubjectRole(tenantID, id string) contracts.Subject {
+func NewSubjectRole(tenantID, roleID string) contracts.Subject {
 	return &subject{
 		Kind:     subjectKindRole,
 		TenantID: tenantID,
-		ID:       id,
+		ID:       roleID,
 	}
 }
 
-func newSubjectGroup(tenantID, id string) contracts.Subject {
+func NewSubjectGroup(tenantID, groupID string) contracts.Subject {
 	return &subject{
 		Kind:     subjectKindGroup,
 		TenantID: tenantID,
-		ID:       id,
+		ID:       groupID,
 	}
 }
 

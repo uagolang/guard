@@ -56,3 +56,36 @@ func Filter[T any](slice []T, fn func(T) bool) []T {
 	}
 	return result
 }
+
+// Difference returns the difference between two collections.
+// The first value is the collection of element absent of list2.
+// The second value is the collection of element absent of list1.
+func Difference[T comparable](list1 []T, list2 []T) ([]T, []T) {
+	left := []T{}
+	right := []T{}
+
+	seenLeft := map[T]struct{}{}
+	seenRight := map[T]struct{}{}
+
+	for _, elem := range list1 {
+		seenLeft[elem] = struct{}{}
+	}
+
+	for _, elem := range list2 {
+		seenRight[elem] = struct{}{}
+	}
+
+	for _, elem := range list1 {
+		if _, ok := seenRight[elem]; !ok {
+			left = append(left, elem)
+		}
+	}
+
+	for _, elem := range list2 {
+		if _, ok := seenLeft[elem]; !ok {
+			right = append(right, elem)
+		}
+	}
+
+	return left, right
+}

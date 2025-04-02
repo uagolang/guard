@@ -1,42 +1,39 @@
-package tenant
+package tenant_with_groups
 
 import (
-	"github.com/uagolang/guard/common"
-	"github.com/uagolang/guard/common/contracts"
+	"github.com/uagolang/guard/contracts"
 )
 
 type factory struct {
-	perms []common.Perm
+	perms []contracts.Perm
 }
 
-func NewFactory(permsList ...common.Perm) contracts.Factory {
+func NewFactory(permsList ...contracts.Perm) contracts.Factory {
 	return &factory{perms: permsList}
 }
 
-func (f *factory) Scope(data ...string) contracts.Scope {
+func (f *factory) Scope(data contracts.ScopeData) contracts.Scope {
 	if len(data) == 0 {
 		return newScope()
 	}
 
-	return newScope(WithData(
-		map[string]string{ScopeDataTenantIDName: data[0]},
-	))
+	return newScope(WithData(data))
 }
 
 func (f *factory) SubjectUser(id string) contracts.Subject {
-	return newSubjectUser(id)
+	return NewSubjectUser(id)
 }
 
 func (f *factory) SubjectRole(tenantID, id string) contracts.Subject {
-	return newSubjectRole(tenantID, id)
+	return NewSubjectRole(tenantID, id)
 }
 
 func (f *factory) SubjectGroup(tenantID, id string) contracts.Subject {
-	return newSubjectGroup(tenantID, id)
+	return NewSubjectGroup(tenantID, id)
 }
 
-func (f *factory) Object(s contracts.Scope, p any) contracts.Object {
-	return newObject().SetScope(s).SetPerm(p)
+func (f *factory) Object(s contracts.Scope, p contracts.Perm) contracts.Object {
+	return NewObject().SetScope(s).SetPerm(p)
 }
 
 func (f *factory) GroupPolicy(sub, role contracts.Subject) contracts.GroupPolicy {
@@ -49,6 +46,20 @@ func (f *factory) PolicyFromCasbin(p []string) (contracts.Policy, error) {
 
 func (f *factory) RolePolicyFromCasbin(p []string) (contracts.RolePolicy, error) {
 	return newRolePolicyFromCasbin(f.perms, p)
+}
+
+func (f *factory) RolePoliciesFromCasbin(p [][]string) ([]contracts.RolePolicy, error) {
+	res := make([]contracts.RolePolicy, len(p))
+	for idx, pol := range p {
+		rPolicy, err := newRolePolicyFromCasbin(f.perms, pol)
+		if err != nil {
+			return nil, err
+		}
+
+		res[idx] = rPolicy
+	}
+
+	return res, nil
 }
 
 func (f *factory) GroupPolicyFromCasbin(s []string) (contracts.GroupPolicy, error) {
