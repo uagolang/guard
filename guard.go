@@ -253,12 +253,12 @@ func (g *Guard) RemoveUserPerms(userID string) error {
 }
 
 func (g *Guard) GetFilteredPolicies(filter func(pol contracts.Policy) bool) ([][]string, error) {
-	policy, err := g.casbin.GetPolicy()
+	policies, err := g.casbin.GetPolicy()
 	if err != nil {
 		return nil, err
 	}
 
-	return utils.Filter(policy, func(casbinPolicy []string) bool {
+	return utils.Filter(policies, func(casbinPolicy []string) bool {
 		p, err := g.factory.PolicyFromCasbin(casbinPolicy)
 		return err == nil && filter(p)
 	}), nil

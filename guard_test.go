@@ -34,6 +34,10 @@ func TestGuard(t *testing.T) {
 	objAll := factory.Object(scope, permOrgAll)
 	forbiddenErr := common.ErrForbidden(permOrgUpdate)
 
+	policy := factorytenant.NewPolicy(userSub, scope, permOrgUpdate, "allow")
+	//policy2 := factorytenant.NewPolicy(userSub, scope, permOrgAll, "allow")
+	policySlice := [][]string{{policy.Sub().ToCasbin(), objUpdate.ToCasbin(), common.ActionUpdate.String(), policy.Effect()}}
+
 	rolePolicy := (new(factorytenant.RolePolicy)).SetScope(scope).SetPerm(permOrgUpdate)
 	rolePolicy2 := (new(factorytenant.RolePolicy)).SetScope(scope).SetPerm(permOrgAll)
 	rolePolicyUnexpected := (new(factorytenant.RolePolicy)).SetScope(scope).SetPerm(&common.Permission{
@@ -42,9 +46,15 @@ func TestGuard(t *testing.T) {
 		Action: "action",
 	})
 
+	groupPolicy := factorytenant.NewGroupPolicy(userSub, roleSub)
+
 	mockCasbin := mocks.NewMockCasbin(ctrl)
 	mockFactory := mocks.NewMockFactory(ctrl)
 	g := New(mockFactory, mockCasbin)
+
+	casbinPoliciesToAdd := [][]string{rolePolicy.ToCasbin(roleSub), rolePolicy2.ToCasbin(roleSub)}
+	rolePoliciesToAdd := []contracts.RolePolicy{rolePolicy, rolePolicy2}
+	lenRolePoliciesToAdd := len(rolePoliciesToAdd)
 
 	t.Run("factory: tenant", func(t *testing.T) {
 
@@ -325,10 +335,6 @@ func TestGuard(t *testing.T) {
 		})
 
 		t.Run("UpdateRole", func(t *testing.T) {
-			casbinPoliciesToAdd := [][]string{rolePolicy.ToCasbin(roleSub), rolePolicy2.ToCasbin(roleSub)}
-			rolePoliciesToAdd := []contracts.RolePolicy{rolePolicy, rolePolicy2}
-			lenRolePoliciesToAdd := len(rolePoliciesToAdd)
-
 			t.Run("error: empty user id", func(t *testing.T) {
 				err := g.UpdateRole(context.Background(), "", RoleRequest{})
 				assert.Error(t, err, "user id must not be empty")
@@ -370,49 +376,24 @@ func TestGuard(t *testing.T) {
 				assert.Equal(t, mockErr, err)
 			})
 
-			t.Run("error: hasAllPolicies (removed policy)", func(t *testing.T) {
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil).Times(lenRolePoliciesToAdd)
-				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil).Times(lenRolePoliciesToAdd)
-
-				//mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).Times(lenRolePoliciesToAdd)
-				//mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate).Times(lenRolePoliciesToAdd)
-				//mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
-
-				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(false, nil)
-
-				err := g.UpdateRole(context.Background(), userID, RoleRequest{Sub: roleSub, ScopeData: scopeData, Policies: casbinPoliciesToAdd})
-				assert.Error(t, err)
-				assert.Equal(t, forbiddenErr, err)
-			})
-
-			t.Run("error: hasAllPolicies (added policy)", func(t *testing.T) {
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
-				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return([]contracts.RolePolicy{rolePolicy}, nil)
-
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).Times(2)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate).Times(2)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, forbiddenErr)
-
-				err := g.UpdateRole(context.Background(), userID, RoleRequest{Sub: roleSub, ScopeData: scopeData, Policies: casbinPoliciesToAdd})
-				assert.Error(t, err)
-				assert.Equal(t, forbiddenErr, err)
-			})
-
 			t.Run("error: RemoveFilteredPolicy", func(t *testing.T) {
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
+				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
 				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
 				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return([]contracts.RolePolicy{rolePolicy}, nil)
 
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
+
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
 				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
 				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(false, forbiddenErr)
 
 				err := g.UpdateRole(context.Background(), userID, RoleRequest{Sub: roleSub, ScopeData: scopeData, Policies: casbinPoliciesToAdd})
@@ -421,10 +402,13 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("error: AddPoliciesEx", func(t *testing.T) {
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
 				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
 				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return([]contracts.RolePolicy{rolePolicy}, nil)
+
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
 
 				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
@@ -434,7 +418,6 @@ func TestGuard(t *testing.T) {
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
 				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 
-				// true indicates removal happened
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 				mockCasbin.EXPECT().AddPoliciesEx(gomock.Any()).Return(false, forbiddenErr)
 
@@ -444,10 +427,13 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success", func(t *testing.T) {
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
 				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
 				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
-				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return([]contracts.RolePolicy{rolePolicy2}, nil)
+
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
+				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
 
 				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).Times(2)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
@@ -470,9 +456,7 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("error: hasAllSubjectPerms", func(t *testing.T) {
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, mockErr)
+				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, mockErr)
 
 				err := g.DeleteRole(context.Background(), userID, roleSub)
 				assert.Error(t, err)
@@ -480,9 +464,13 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("error: RemoveFilteredPolicy", func(t *testing.T) {
+				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(policySlice, nil)
+				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+
 				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
 				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(false, mockErr)
 
 				err := g.DeleteRole(context.Background(), userID, roleSub)
@@ -490,11 +478,32 @@ func TestGuard(t *testing.T) {
 				assert.Equal(t, mockErr, err)
 			})
 
+			t.Run("error: RemoveFilteredGroupingPolicy", func(t *testing.T) {
+				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, nil)
+				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
+				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
+				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil).Times(lenRolePoliciesToAdd)
+
+				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
+				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(false, mockErr)
+
+				err := g.DeleteRole(context.Background(), userID, roleSub)
+				assert.Error(t, err)
+				assert.Equal(t, mockErr, err)
+			})
+
 			t.Run("success", func(t *testing.T) {
+				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, nil)
+				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
+
 				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
 				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
 				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
+				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 
 				err := g.DeleteRole(context.Background(), userID, roleSub)
 				assert.NoError(t, err)
@@ -503,6 +512,7 @@ func TestGuard(t *testing.T) {
 
 		t.Run("AssignRoles", func(t *testing.T) {
 			t.Run("error: AddGroupingPoliciesEx", func(t *testing.T) {
+				mockFactory.EXPECT().GroupPolicy(gomock.Any(), gomock.Any()).Return(groupPolicy).Times(lenRolePoliciesToAdd)
 				mockCasbin.EXPECT().AddGroupingPoliciesEx(gomock.Any()).Return(false, mockErr)
 
 				err := g.AssignRoles(userSub, roleSub)
@@ -511,6 +521,7 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success", func(t *testing.T) {
+				mockFactory.EXPECT().GroupPolicy(gomock.Any(), gomock.Any()).Return(groupPolicy)
 				mockCasbin.EXPECT().AddGroupingPoliciesEx(gomock.Any()).Return(true, nil)
 
 				err := g.AssignRoles(userSub, roleSub)
@@ -528,6 +539,7 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success: with roles", func(t *testing.T) {
+				mockFactory.EXPECT().GroupPolicy(gomock.Any(), gomock.Any()).Return(groupPolicy)
 				mockCasbin.EXPECT().RemoveGroupingPolicy(gomock.Any()).Return(true, nil)
 
 				err := g.RevokeRoles(userSub, roleSub)
@@ -546,60 +558,6 @@ func TestGuard(t *testing.T) {
 				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 
 				err := g.RevokeRoles(userSub)
-				assert.NoError(t, err)
-			})
-		})
-
-		t.Run("hasAllSubjectPerms", func(t *testing.T) {
-			t.Run("error: GetImplicitPermissionsForUser", func(t *testing.T) {
-				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, mockErr)
-
-				err := g.hasAllSubjectPerms(context.Background(), userID, roleSub)
-				assert.Error(t, err)
-				assert.Equal(t, mockErr, err)
-			})
-
-			t.Run("error: RolePolicyFromCasbin", func(t *testing.T) {
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return([][]string{rolePolicy.ToCasbin(roleSub)}, nil)
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(nil, mockErr)
-
-				err := g.hasAllSubjectPerms(context.Background(), userID, roleSub)
-				assert.Error(t, err)
-				assert.Equal(t, mockErr, err)
-			})
-
-			t.Run("error: hasPerm", func(t *testing.T) {
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return([][]string{rolePolicy.ToCasbin(roleSub)}, nil)
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, mockErr)
-
-				err := g.hasAllSubjectPerms(context.Background(), userID, roleSub)
-				assert.Error(t, err)
-				assert.Equal(t, mockErr, err)
-			})
-
-			t.Run("error: forbidden", func(t *testing.T) {
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return([][]string{rolePolicy.ToCasbin(roleSub)}, nil)
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
-
-				err := g.hasAllSubjectPerms(context.Background(), userID, roleSub)
-				assert.Error(t, err)
-				assert.Equal(t, forbiddenErr, err)
-			})
-
-			t.Run("success", func(t *testing.T) {
-				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return([][]string{rolePolicy.ToCasbin(roleSub)}, nil)
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objUpdate)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
-
-				err := g.hasAllSubjectPerms(context.Background(), userID, roleSub)
 				assert.NoError(t, err)
 			})
 		})
@@ -653,9 +611,8 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("error: RemovePolicies", func(t *testing.T) {
-				policies := [][]string{{"sub", "obj", "act", "eff"}}
-				mockCasbin.EXPECT().GetPolicy().Return(policies, nil)
-				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(nil, nil)
+				mockCasbin.EXPECT().GetPolicy().Return(policySlice, nil)
+				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(policy, nil)
 				mockCasbin.EXPECT().RemovePolicies(gomock.Any()).Return(false, mockErr)
 
 				err := g.RemoveObjectPerms("object", "objectID")
@@ -664,9 +621,8 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success", func(t *testing.T) {
-				policies := [][]string{{"sub", "obj", "act", "eff"}}
-				mockCasbin.EXPECT().GetPolicy().Return(policies, nil)
-				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(nil, nil)
+				mockCasbin.EXPECT().GetPolicy().Return(policySlice, nil)
+				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(policy, nil)
 				mockCasbin.EXPECT().RemovePolicies(gomock.Any()).Return(true, nil)
 
 				err := g.RemoveObjectPerms("object", "objectID")
@@ -684,9 +640,8 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("error: RemovePolicies", func(t *testing.T) {
-				policies := [][]string{{"sub", "obj", "act", "eff"}}
-				mockCasbin.EXPECT().GetPolicy().Return(policies, nil)
-				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(nil, nil)
+				mockCasbin.EXPECT().GetPolicy().Return(policySlice, nil)
+				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(policy, nil)
 				mockCasbin.EXPECT().RemovePolicies(gomock.Any()).Return(false, mockErr)
 
 				err := g.RemoveScopePerms(scope)
@@ -695,9 +650,8 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success", func(t *testing.T) {
-				policies := [][]string{{"sub", "obj", "act", "eff"}}
-				mockCasbin.EXPECT().GetPolicy().Return(policies, nil)
-				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(nil, nil)
+				mockCasbin.EXPECT().GetPolicy().Return(policySlice, nil)
+				mockFactory.EXPECT().PolicyFromCasbin(gomock.Any()).Return(policy, nil)
 				mockCasbin.EXPECT().RemovePolicies(gomock.Any()).Return(true, nil)
 
 				err := g.RemoveScopePerms(scope)
@@ -707,33 +661,15 @@ func TestGuard(t *testing.T) {
 
 		t.Run("GetPermsByObject", func(t *testing.T) {
 			t.Run("admin: true", func(t *testing.T) {
-				perms, err := g.GetPermsByObject(GetPermsByObjectRequest{Admin: true, Object: "org"})
+				perms, err := g.GetPermsByObject(GetPermsByObjectRequest{Admin: true, Object: common.EntityObjectOrg.String()})
 				assert.NoError(t, err)
 				assert.NotEmpty(t, perms)
 			})
 
 			t.Run("admin: false", func(t *testing.T) {
-				perms, err := g.GetPermsByObject(GetPermsByObjectRequest{Admin: false, Object: "org"})
+				perms, err := g.GetPermsByObject(GetPermsByObjectRequest{Admin: false, Object: common.EntityObjectOrg.String()})
 				assert.NoError(t, err)
 				assert.NotEmpty(t, perms)
-			})
-		})
-
-		t.Run("rolePoliciesFromCasbin", func(t *testing.T) {
-			t.Run("error: RolePolicyFromCasbin", func(t *testing.T) {
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(nil, mockErr)
-
-				_, err := g.rolePoliciesFromCasbin([][]string{{"sub", "obj", "act", "eff"}})
-				assert.Error(t, err)
-				assert.Equal(t, mockErr, err)
-			})
-
-			t.Run("success", func(t *testing.T) {
-				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
-
-				policies, err := g.rolePoliciesFromCasbin([][]string{{"sub", "obj", "act", "eff"}})
-				assert.NoError(t, err)
-				assert.Equal(t, []contracts.RolePolicy{rolePolicy}, policies)
 			})
 		})
 	})

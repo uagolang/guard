@@ -38,7 +38,7 @@ func (f *factory) Object(s contracts.Scope, p contracts.Perm) contracts.Object {
 }
 
 func (f *factory) GroupPolicy(sub, role contracts.Subject) contracts.GroupPolicy {
-	return newGroupPolicy(sub, role)
+	return NewGroupPolicy(sub, role)
 }
 
 func (f *factory) PolicyFromCasbin(p []string) (contracts.Policy, error) {

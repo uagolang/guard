@@ -4,32 +4,32 @@ import (
 	"github.com/uagolang/guard/contracts"
 )
 
-// policy is a casbin entry of type p
-type policy struct {
+// Policy is a casbin entry of type p
+type Policy struct {
 	sub    contracts.Subject
 	scope  contracts.Scope
 	perm   contracts.Perm
 	effect string
 }
 
-func (p *policy) Sub() contracts.Subject {
+func (p *Policy) Sub() contracts.Subject {
 	return p.sub
 }
 
-func (p *policy) Scope() contracts.Scope {
+func (p *Policy) Scope() contracts.Scope {
 	return p.scope
 }
 
-func (p *policy) Perm() contracts.Perm {
+func (p *Policy) Perm() contracts.Perm {
 	return p.perm
 }
 
-func (p *policy) Effect() string {
+func (p *Policy) Effect() string {
 	return p.effect
 }
 
-func newPolicy(sub contracts.Subject, scope contracts.Scope, perm contracts.Perm, effect string) contracts.Policy {
-	return &policy{
+func NewPolicy(sub contracts.Subject, scope contracts.Scope, perm contracts.Perm, effect string) contracts.Policy {
+	return &Policy{
 		sub:    sub,
 		scope:  scope,
 		perm:   perm,
@@ -55,7 +55,7 @@ func newPolicyFromCasbin(permsList []contracts.Perm, s []string) (contracts.Poli
 
 	effect := s[3]
 
-	return newPolicy(sub, obj.GetScope(), perm, effect), nil
+	return NewPolicy(sub, obj.GetScope(), perm, effect), nil
 }
 
 type RolePolicy struct {
@@ -104,21 +104,21 @@ func newRolePolicyFromCasbin(permsList []contracts.Perm, p []string) (contracts.
 	}, nil
 }
 
-// groupPolicy is a casbin entry of type g
-type groupPolicy struct {
-	// who inherits the policy
+// GroupPolicy is a casbin entry of type g
+type GroupPolicy struct {
+	// who inherits the Policy
 	subject contracts.Subject
 
-	// what policy is inherited
+	// what Policy is inherited
 	role contracts.Subject
 }
 
-func (gp *groupPolicy) ToCasbin() []string {
+func (gp *GroupPolicy) ToCasbin() []string {
 	return []string{gp.subject.ToCasbin(), gp.role.ToCasbin()}
 }
 
-func newGroupPolicy(subject, role contracts.Subject) contracts.GroupPolicy {
-	return &groupPolicy{
+func NewGroupPolicy(subject, role contracts.Subject) contracts.GroupPolicy {
+	return &GroupPolicy{
 		subject: subject,
 		role:    role,
 	}
@@ -135,5 +135,5 @@ func newGroupPolicyFromCasbin(s []string) (contracts.GroupPolicy, error) {
 		return nil, err
 	}
 
-	return newGroupPolicy(sub, role), nil
+	return NewGroupPolicy(sub, role), nil
 }

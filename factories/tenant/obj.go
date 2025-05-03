@@ -17,7 +17,7 @@ type Object struct {
 }
 
 // NewObject accepts scopes in order: TenantID, EntityObject, EntityObjectID
-// If any Scope excepts EntityObjectID is empty, it will be replaced with "*" (wildcard).
+// If any Scope excepting EntityObjectID is empty, it will be replaced with "*" (wildcard).
 func NewObject(scopes ...string) *Object {
 	return &Object{
 		TenantID:       utils.SliceElem(scopes, 0, common.Wildcard),
