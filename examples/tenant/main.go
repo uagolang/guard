@@ -11,7 +11,7 @@ import (
 	"github.com/uagolang/guard/common"
 	"github.com/uagolang/guard/contracts"
 	"github.com/uagolang/guard/examples/tenant/rbac"
-	"github.com/uagolang/guard/factories/tenant_with_groups"
+	factorytenant "github.com/uagolang/guard/factories/tenant"
 )
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 	allPerms := append(common.Perms, rbac.AllPerms...)
 	allActions := append(common.Actions, rbac.Actions...)
 
-	g := guard.New(tenant.NewFactory(allPerms...), enforcer,
+	g := guard.New(factorytenant.NewFactory(allPerms...), enforcer,
 		guard.WithPerms(allPerms...),                 // standard + custom
 		guard.WithActions(allActions...),             // standard + custom
 		guard.WithEntityObjects(allEntityObjects...), // standard + custom
@@ -50,11 +50,11 @@ func main() {
 	)
 
 	scopeData := contracts.ScopeData{
-		tenant.ScopeDataTenantIDName: tenantID,
+		factorytenant.ScopeDataTenantIDName: tenantID,
 	}
 
 	// add org admin role
-	adminRoleSub := tenant.NewSubjectRole(tenantID, roleAdmin)
+	adminRoleSub := factorytenant.NewSubjectRole(tenantID, roleAdmin)
 	err = g.CreateRole(guard.RoleRequest{
 		Sub:       adminRoleSub,
 		ScopeData: scopeData,
@@ -66,8 +66,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// add org member role
-	memberRoleSub := tenant.NewSubjectRole(tenantID, roleMember)
+	// add an org member role
+	memberRoleSub := factorytenant.NewSubjectRole(tenantID, roleMember)
 	err = g.CreateRole(guard.RoleRequest{
 		Sub:       memberRoleSub,
 		ScopeData: scopeData,
@@ -80,13 +80,13 @@ func main() {
 	}
 
 	// add user0 as org admin
-	err = g.AssignRoles(tenant.NewSubjectUser(users[0]), adminRoleSub)
+	err = g.AssignRoles(factorytenant.NewSubjectUser(users[0]), adminRoleSub)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// add user1 as org member
-	err = g.AssignRoles(tenant.NewSubjectUser(users[1]), memberRoleSub)
+	// add user1 as an org member
+	err = g.AssignRoles(factorytenant.NewSubjectUser(users[1]), memberRoleSub)
 	if err != nil {
 		log.Fatal(err)
 	}
