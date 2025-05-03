@@ -1,41 +1,27 @@
 package guard
 
 import (
-	"github.com/casbin/casbin/v2"
-
 	"github.com/uagolang/guard/common"
 	"github.com/uagolang/guard/contracts"
 )
 
 type Option func(g *Guard)
 
-func WithFactory(factory contracts.Factory) Option {
+func WithActions(actions ...common.Action) Option {
 	return func(g *Guard) {
-		g.factory = factory
+		g.actions = append(g.actions, actions...)
 	}
 }
 
-func WithEnforcer(enforcer *casbin.Enforcer) Option {
+func WithEntityObjects(entityObjects ...common.EntityObject) Option {
 	return func(g *Guard) {
-		g.casbin = enforcer
+		g.entityObjects = append(g.entityObjects, entityObjects...)
 	}
 }
 
-func WithActions(actions []common.Action) Option {
+func WithPerms(perms ...contracts.Perm) Option {
 	return func(g *Guard) {
-		g.actions = actions
-	}
-}
-
-func WithEntityObjects(entityObjects []common.EntityObject) Option {
-	return func(g *Guard) {
-		g.entityObjects = entityObjects
-	}
-}
-
-func WithPerms(perms []contracts.Perm) Option {
-	return func(g *Guard) {
-		g.perms = perms
+		g.perms = append(g.perms, perms...)
 	}
 }
 

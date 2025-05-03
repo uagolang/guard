@@ -1,4 +1,4 @@
-package tenant_with_groups
+package tenant
 
 import (
 	"fmt"

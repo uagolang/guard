@@ -34,15 +34,13 @@ func main() {
 	tenantID := orgIDs[0]
 
 	allEntityObjects := append(common.EntityObjects, rbac.Objects...)
-	allPerms := append(common.AllPerms, rbac.AllPerms...)
+	allPerms := append(common.Perms, rbac.AllPerms...)
 	allActions := append(common.Actions, rbac.Actions...)
 
-	g := guard.New(
-		guard.WithFactory(tenant_with_groups.NewFactory(allPerms...)),
-		guard.WithEnforcer(enforcer),
-		guard.WithPerms(allPerms),                 // standard + custom
-		guard.WithActions(allActions),             // standard + custom
-		guard.WithEntityObjects(allEntityObjects), // standard + custom
+	g := guard.New(tenant.NewFactory(allPerms...), enforcer,
+		guard.WithPerms(allPerms...),                 // standard + custom
+		guard.WithActions(allActions...),             // standard + custom
+		guard.WithEntityObjects(allEntityObjects...), // standard + custom
 		guard.WithScopedObjects(map[contracts.ScopeLevel][]common.EntityObject{
 			contracts.ScopeLevelSystem: allEntityObjects,
 			contracts.ScopeLevelTenant: {
@@ -52,11 +50,11 @@ func main() {
 	)
 
 	scopeData := contracts.ScopeData{
-		tenant_with_groups.ScopeDataTenantIDName: tenantID,
+		tenant.ScopeDataTenantIDName: tenantID,
 	}
 
 	// add org admin role
-	adminRoleSub := tenant_with_groups.NewSubjectRole(tenantID, roleAdmin)
+	adminRoleSub := tenant.NewSubjectRole(tenantID, roleAdmin)
 	err = g.CreateRole(guard.RoleRequest{
 		Sub:       adminRoleSub,
 		ScopeData: scopeData,
@@ -69,7 +67,7 @@ func main() {
 	}
 
 	// add org member role
-	memberRoleSub := tenant_with_groups.NewSubjectRole(tenantID, roleMember)
+	memberRoleSub := tenant.NewSubjectRole(tenantID, roleMember)
 	err = g.CreateRole(guard.RoleRequest{
 		Sub:       memberRoleSub,
 		ScopeData: scopeData,
@@ -82,13 +80,13 @@ func main() {
 	}
 
 	// add user0 as org admin
-	err = g.AssignRoles([]contracts.Subject{adminRoleSub}, tenant_with_groups.NewSubjectUser(users[0]))
+	err = g.AssignRoles(tenant.NewSubjectUser(users[0]), adminRoleSub)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// add user1 as org member
-	err = g.AssignRoles([]contracts.Subject{memberRoleSub}, tenant_with_groups.NewSubjectUser(users[1]))
+	err = g.AssignRoles(tenant.NewSubjectUser(users[1]), memberRoleSub)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -103,7 +101,7 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	} else {
-		log.Println("user0:", "has access")
+		log.Println("user0:", "has access to update Org")
 	}
 
 	// has not access

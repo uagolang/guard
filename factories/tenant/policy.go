@@ -1,4 +1,4 @@
-package tenant_with_groups
+package tenant
 
 import (
 	"github.com/uagolang/guard/contracts"
@@ -58,35 +58,35 @@ func newPolicyFromCasbin(permsList []contracts.Perm, s []string) (contracts.Poli
 	return newPolicy(sub, obj.GetScope(), perm, effect), nil
 }
 
-type rolePolicy struct {
+type RolePolicy struct {
 	scope  contracts.Scope
 	perm   contracts.Perm
 	effect string
 }
 
-func (p *rolePolicy) SetScope(s contracts.Scope) contracts.RolePolicy {
+func (p *RolePolicy) SetScope(s contracts.Scope) contracts.RolePolicy {
 	p.scope = s
 	return p
 }
 
-func (p *rolePolicy) Scope() contracts.Scope {
+func (p *RolePolicy) Scope() contracts.Scope {
 	return p.scope
 }
 
-func (p *rolePolicy) SetPerm(perm contracts.Perm) contracts.RolePolicy {
+func (p *RolePolicy) SetPerm(perm contracts.Perm) contracts.RolePolicy {
 	p.perm = perm
 	return p
 }
 
-func (p *rolePolicy) Perm() contracts.Perm {
+func (p *RolePolicy) Perm() contracts.Perm {
 	return p.perm
 }
 
-func (p *rolePolicy) Effect() string {
+func (p *RolePolicy) Effect() string {
 	return p.effect
 }
 
-func (p *rolePolicy) ToCasbin(sub contracts.Subject) []string {
+func (p *RolePolicy) ToCasbin(sub contracts.Subject) []string {
 	obj := NewObject().SetScope(p.scope).SetPerm(p.perm)
 	return []string{sub.ToCasbin(), obj.ToCasbin(), p.perm.GetAction(), p.effect}
 }
@@ -97,7 +97,7 @@ func newRolePolicyFromCasbin(permsList []contracts.Perm, p []string) (contracts.
 		return nil, err
 	}
 
-	return &rolePolicy{
+	return &RolePolicy{
 		scope:  pol.Scope(),
 		perm:   pol.Perm(),
 		effect: pol.Effect(),

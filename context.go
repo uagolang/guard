@@ -17,7 +17,10 @@ func Context(ctx context.Context) context.Context {
 }
 
 func DisableCheckPerms(ctx context.Context) {
-	data := ctx.Value(guardCtx).(*contextData)
+	data, ok := ctx.Value(guardCtx).(*contextData)
+	if !ok {
+		return
+	}
 	data.accessCheckDisabled = true
 }
 

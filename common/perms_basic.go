@@ -41,6 +41,6 @@ func (r *role) Perms() []contracts.Perm {
 	)
 }
 
-var AllPerms = utils.FlatMap(listers, func(lister Lister) []contracts.Perm {
+var Perms = utils.FlatMap(listers, func(lister Lister) []contracts.Perm {
 	return lister.Perms()
 })

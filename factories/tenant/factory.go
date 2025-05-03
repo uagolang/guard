@@ -1,7 +1,8 @@
-package tenant_with_groups
+package tenant
 
 import (
 	"github.com/uagolang/guard/contracts"
+	"github.com/uagolang/guard/examples/tenant/rbac"
 )
 
 type factory struct {
@@ -9,7 +10,7 @@ type factory struct {
 }
 
 func NewFactory(permsList ...contracts.Perm) contracts.Factory {
-	return &factory{perms: permsList}
+	return &factory{perms: append(rbac.AllPerms, permsList...)}
 }
 
 func (f *factory) Scope(data contracts.ScopeData) contracts.Scope {

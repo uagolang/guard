@@ -13,15 +13,23 @@ import (
 
 type Guard struct {
 	factory       contracts.Factory
-	casbin        *casbin.Enforcer
+	casbin        casbin.IEnforcer
 	actions       []common.Action
 	entityObjects []common.EntityObject
 	perms         []contracts.Perm
 	scopedObjects map[contracts.ScopeLevel][]common.EntityObject
 }
 
-func New(opts ...Option) *Guard {
-	g := new(Guard)
+func New(f contracts.Factory, e casbin.IEnforcer, opts ...Option) *Guard {
+	g := &Guard{
+		factory:       f,
+		casbin:        e,
+		perms:         common.Perms,
+		actions:       common.Actions,
+		entityObjects: common.EntityObjects,
+		scopedObjects: defaultScopedObjects,
+	}
+
 	for _, opt := range opts {
 		opt(g)
 	}
@@ -30,7 +38,7 @@ func New(opts ...Option) *Guard {
 }
 
 // Casbin returns enforcer
-func (g *Guard) Casbin() *casbin.Enforcer {
+func (g *Guard) Casbin() casbin.IEnforcer {
 	return g.casbin
 }
 
@@ -72,27 +80,27 @@ func (g *Guard) HasPerm(ctx context.Context, userID string, perm contracts.Perm,
 	})
 }
 
-//func (g *Guard) ForceCheckPerm(ctx context.Context, userID string, perm contracts.Perm, scopes ...string) error {
-//	if err := g.validateScopes(perm, scopes...); err != nil {
-//		return err
-//	}
-//
-//	return g.check(ctx, check{
-//		userID:     userID,
-//		perm:       perm,
-//		scope:      g.factory.Scope(g.getScopeData(scopes...)),
-//		forceCheck: true,
-//	})
-//}
-//
-//func (g *Guard) HasPermInScope(ctx context.Context, userID string, perm contracts.Perm, scope contracts.Scope, forceCheckOpt ...bool) error {
-//	return g.check(ctx, check{
-//		userID:     userID,
-//		perm:       perm,
-//		scope:      scope,
-//		forceCheck: utils.SliceElem(forceCheckOpt, 0, false),
-//	})
-//}
+func (g *Guard) ForceCheckPerm(ctx context.Context, userID string, perm contracts.Perm, scopeData contracts.ScopeData) error {
+	if err := g.validateScopes(perm, scopeData); err != nil {
+		return err
+	}
+
+	return g.check(ctx, check{
+		userID:     userID,
+		perm:       perm,
+		scope:      g.factory.Scope(scopeData),
+		forceCheck: true,
+	})
+}
+
+func (g *Guard) HasPermInScope(ctx context.Context, userID string, perm contracts.Perm, scope contracts.Scope, forceCheckOpt ...bool) error {
+	return g.check(ctx, check{
+		userID:     userID,
+		perm:       perm,
+		scope:      scope,
+		forceCheck: utils.SliceElem(forceCheckOpt, 0, false),
+	})
+}
 
 type RoleRequest struct {
 	Sub       contracts.Subject
@@ -101,14 +109,9 @@ type RoleRequest struct {
 }
 
 func (g *Guard) CreateRole(i RoleRequest) error {
-	rolePolicies, err := g.factory.RolePoliciesFromCasbin(i.Policies)
-	if err != nil {
-		return err
-	}
-
 	sanitizedPolicies, err := g.sanitizeRolePolicies(sanitizeRolePolicies{
-		scopeData: i.ScopeData,
-		policies:  rolePolicies,
+		scopeData:      i.ScopeData,
+		casbinPolicies: i.Policies,
 	})
 	if err != nil {
 		return err
@@ -125,17 +128,12 @@ func (g *Guard) CreateRole(i RoleRequest) error {
 
 func (g *Guard) UpdateRole(ctx context.Context, userID string, i RoleRequest) error {
 	if userID == "" {
-		return errors.New("user id is empty")
-	}
-
-	iPolicies, err := g.factory.RolePoliciesFromCasbin(i.Policies)
-	if err != nil {
-		return err
+		return errors.New("user id must not be empty")
 	}
 
 	sanitizedPolicies, err := g.sanitizeRolePolicies(sanitizeRolePolicies{
-		scopeData: i.ScopeData,
-		policies:  iPolicies,
+		scopeData:      i.ScopeData,
+		casbinPolicies: i.Policies,
 	})
 	if err != nil {
 		return err
@@ -146,7 +144,7 @@ func (g *Guard) UpdateRole(ctx context.Context, userID string, i RoleRequest) er
 		return err
 	}
 
-	fPolicies, err := g.factory.RolePoliciesFromCasbin(filteredPolicies)
+	fPolicies, err := g.rolePoliciesFromCasbin(filteredPolicies)
 	if err != nil {
 		return err
 	}
@@ -174,6 +172,10 @@ func (g *Guard) UpdateRole(ctx context.Context, userID string, i RoleRequest) er
 }
 
 func (g *Guard) DeleteRole(ctx context.Context, userID string, sub contracts.Subject) error {
+	if userID == "" {
+		return errors.New("user id must not be empty")
+	}
+
 	if err := g.hasAllSubjectPerms(ctx, userID, sub); err != nil {
 		return err
 	}
@@ -191,7 +193,7 @@ func (g *Guard) DeleteRole(ctx context.Context, userID string, sub contracts.Sub
 	return nil
 }
 
-func (g *Guard) AssignRoles(roles []contracts.Subject, sub contracts.Subject) error {
+func (g *Guard) AssignRoles(sub contracts.Subject, roles ...contracts.Subject) error {
 	casbinPolicies := utils.Map(roles, func(role contracts.Subject, _ int) []string {
 		return g.factory.GroupPolicy(sub, role).ToCasbin()
 	})
@@ -220,7 +222,7 @@ func (g *Guard) hasAllPolicies(ctx context.Context, userID string, policies []co
 	for _, policy := range policies {
 		err := g.check(ctx, check{
 			userID:     userID,
-			perm:       policy.Perm().(contracts.Perm),
+			perm:       policy.Perm(),
 			scope:      policy.Scope(),
 			forceCheck: true,
 		})
@@ -246,9 +248,9 @@ func (g *Guard) hasAllSubjectPerms(ctx context.Context, userID string, sub contr
 	return g.hasAllPolicies(ctx, userID, policies)
 }
 
-//func (g *Guard) RemoveUserPerms(userID string) error {
-//	return g.RemoveAllRolesFromSubject(g.factory.SubjectUser(userID))
-//}
+func (g *Guard) RemoveUserPerms(userID string) error {
+	return g.RevokeRoles(g.factory.SubjectUser(userID))
+}
 
 func (g *Guard) GetFilteredPolicies(filter func(pol contracts.Policy) bool) ([][]string, error) {
 	policy, err := g.casbin.GetPolicy()
@@ -302,13 +304,19 @@ func (g *Guard) GetPermsByObject(i GetPermsByObjectRequest) ([]contracts.Perm, e
 }
 
 type sanitizeRolePolicies struct {
-	scopeData contracts.ScopeData
-	policies  []contracts.RolePolicy
+	scopeData      contracts.ScopeData
+	casbinPolicies [][]string
 }
 
 func (g *Guard) sanitizeRolePolicies(i sanitizeRolePolicies) ([]contracts.RolePolicy, error) {
-	res := make([]contracts.RolePolicy, len(i.policies))
-	for idx, p := range i.policies {
+	res := make([]contracts.RolePolicy, len(i.casbinPolicies))
+
+	rolePolicies, err := g.rolePoliciesFromCasbin(i.casbinPolicies)
+	if err != nil {
+		return nil, err
+	}
+
+	for idx, p := range rolePolicies {
 		permission, err := common.GetPerm(g.perms, p.Perm().GetObject(), p.Perm().GetObjectID(), p.Perm().GetAction())
 		if err != nil {
 			return nil, err
@@ -344,8 +352,8 @@ func (g *Guard) rolePoliciesFromCasbin(p [][]string) ([]contracts.RolePolicy, er
 	return res, err
 }
 
-func (g *Guard) validateScopes(p contracts.Perm, scopes contracts.ScopeData) error {
-	if len(scopes) == 0 {
+func (g *Guard) validateScopes(p contracts.Perm, data contracts.ScopeData) error {
+	if data == nil || len(data) == 0 {
 		return common.ErrForbidden(p)
 	}
 
@@ -395,4 +403,11 @@ func (g *Guard) hasPerm(i hasPerm) (bool, error) {
 	obj := g.factory.Object(i.scope, i.perm)
 
 	return g.casbin.Enforce(sub.ToCasbin(), obj.ToCasbin(), i.perm.GetAction())
+}
+
+var defaultScopedObjects = map[contracts.ScopeLevel][]common.EntityObject{
+	contracts.ScopeLevelSystem: common.EntityObjects,
+	contracts.ScopeLevelTenant: {
+		common.EntityObjectOrg,
+	},
 }
