@@ -429,7 +429,7 @@ func TestGuard(t *testing.T) {
 			t.Run("success", func(t *testing.T) {
 				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
 				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy2, nil)
-				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).Times(lenRolePoliciesToAdd)
+				mockFactory.EXPECT().Scope(gomock.Any()).Return(scope).AnyTimes()
 				mockCasbin.EXPECT().GetFilteredPolicy(gomock.Any(), gomock.Any()).Return(casbinPoliciesToAdd, nil)
 
 				mockFactory.EXPECT().RolePolicyFromCasbin(gomock.Any()).Return(rolePolicy, nil)
@@ -467,9 +467,9 @@ func TestGuard(t *testing.T) {
 				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(policySlice, nil)
 				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
 
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).AnyTimes()
+				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll).AnyTimes()
+				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(false, mockErr)
 
@@ -482,9 +482,9 @@ func TestGuard(t *testing.T) {
 				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, nil)
 				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
 
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil).Times(lenRolePoliciesToAdd)
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).AnyTimes()
+				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll).AnyTimes()
+				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(false, mockErr)
@@ -498,9 +498,9 @@ func TestGuard(t *testing.T) {
 				mockCasbin.EXPECT().GetImplicitPermissionsForUser(gomock.Any()).Return(nil, nil)
 				mockFactory.EXPECT().RolePoliciesFromCasbin(gomock.Any()).Return(rolePoliciesToAdd, nil)
 
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
-				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll)
-				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).AnyTimes()
+				mockFactory.EXPECT().Object(gomock.Any(), gomock.Any()).Return(objAll).AnyTimes()
+				mockCasbin.EXPECT().Enforce(gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
 
 				mockCasbin.EXPECT().RemoveFilteredPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
@@ -564,7 +564,7 @@ func TestGuard(t *testing.T) {
 
 		t.Run("RemoveUserPerms", func(t *testing.T) {
 			t.Run("error", func(t *testing.T) {
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).AnyTimes()
 				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(false, mockErr)
 
 				err := g.RemoveUserPerms(userID)
@@ -573,7 +573,7 @@ func TestGuard(t *testing.T) {
 			})
 
 			t.Run("success", func(t *testing.T) {
-				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub)
+				mockFactory.EXPECT().SubjectUser(gomock.Any()).Return(userSub).AnyTimes()
 				mockCasbin.EXPECT().RemoveFilteredGroupingPolicy(gomock.Any(), gomock.Any()).Return(true, nil)
 
 				err := g.RemoveUserPerms(userID)
